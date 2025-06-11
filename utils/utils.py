@@ -101,7 +101,7 @@ def train_and_evaluate_model(
         dataset: pd.DataFrame,
         feature_cols: list,
         target_col: str,
-        model_params: dict = None
+        n_neighbors: int
     ) -> pd.DataFrame:
 
     # Clean data
@@ -113,6 +113,10 @@ def train_and_evaluate_model(
 
     # Split data
     X_train, X_test, y_train, y_test = split_data(cleaned_data, feature_cols, target_col)
+
+    import streamlit as st
+    st.session_state.X_test = X_test
+    st.session_state.y_test = y_test
 
     metrics_df = pd.DataFrame()
 
@@ -141,7 +145,7 @@ def train_and_evaluate_model(
                     from models.classification.models import (
                         train_knn_classifier
                     )
-                    model = train_knn_classifier(X_train, y_train, **model_params)
+                    model = train_knn_classifier(X_train, y_train, n_neighbors)
                 case "Árbol de Decisión":
                     from models.classification.models import (
                         train_decision_tree_classifier
@@ -181,26 +185,28 @@ def train_and_evaluate_model(
                     raise ValueError(f"Modelo no soportado: {model_name}")
 
             y_pred = model.predict(X_test)
+            st.session_state.trained_models = st.session_state.get("trained_models", {})
+            st.session_state.trained_models[model_name] = model
             from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
             return {
                 "Accuracy": accuracy_score(y_test, y_pred),
                 "Precision": precision_score(y_test, y_pred, average='macro', zero_division=0),
                 "Recall": recall_score(y_test, y_pred, average='macro', zero_division=0),
                 "F1-Score": f1_score(y_test, y_pred, average='macro', zero_division=0)
-            }
+            }, model
 
         case "Regresión":
             match model_name:
                 case "Regresión Lineal":
                     from models.regression.models import (
-                        train_linear_regression_model
+                        train_linear_regression
                     )
-                    model = train_linear_regression_model(X_train, y_train)
+                    model = train_linear_regression(X_train, y_train)
                 case "Random Forest Regressor":
                     from models.regression.models import (
-                        train_random_forest_model
+                        train_random_forest
                     )
-                    model = train_random_forest_model(X_train, y_train)
+                    model = train_random_forest(X_train, y_train)
                 case "Regresión de vectores de soporte (SVR)":
                     from models.regression.models import (
                         train_support_vector_regression
@@ -208,19 +214,19 @@ def train_and_evaluate_model(
                     model = train_support_vector_regression(X_train, y_train)
                 case "Regresión Ridge":
                     from models.regression.models import (
-                        train_ridge_regression_model
+                        train_ridge_regression
                     )
-                    model = train_ridge_regression_model(X_train, y_train)
+                    model = train_ridge_regression(X_train, y_train)
                 case "Regresión Lasso":
                     from models.regression.models import (
-                        train_lasso_regression_model
+                        train_lasso_regression
                     )
-                    model = train_lasso_regression_model(X_train, y_train)
+                    model = train_lasso_regression(X_train, y_train)
                 case "Elastic Net":
                     from models.regression.models import (
-                        train_elastic_net_model
+                        train_elastic_net
                     )
-                    model = train_elastic_net_model(X_train, y_train)
+                    model = train_elastic_net(X_train, y_train)
                 case "Gradient Boosting Regressor":
                     from models.regression.models import (
                         train_gradient_boosting_regressor
@@ -230,7 +236,7 @@ def train_and_evaluate_model(
                     from models.regression.models import (
                         train_knn_regressor
                     )
-                    model = train_knn_regressor(X_train, y_train)
+                    model = train_knn_regressor(X_train, y_train, n_neighbors)
                 case "Árbol de Decisión Regressor":
                     from models.regression.models import (
                         train_decision_tree_regressor
@@ -266,6 +272,8 @@ def train_and_evaluate_model(
 
             from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
             import numpy as np
+            st.session_state.trained_models = st.session_state.get("trained_models", {})
+            st.session_state.trained_models[model_name] = model
             y_pred = model.predict(X_test)
             return {
                 "MAE": mean_absolute_error(y_test, y_pred),
@@ -273,6 +281,6 @@ def train_and_evaluate_model(
                 "RMSE": np.sqrt(mean_squared_error(y_test, y_pred)),
                 "R2": r2_score(y_test, y_pred),
                 
-            }
+            }, model
 
     return metrics_df

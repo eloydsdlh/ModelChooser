@@ -1,9 +1,10 @@
 import pandas as pd
 from sklearn.utils.multiclass import type_of_target
 import streamlit as st
-import time
+import numpy as np
 from utils.utils import train_and_evaluate_model
-
+import joblib
+import io
 # Configuration
 st.set_page_config(
     page_title="🔍 Recomendador de modelos de ML",
@@ -156,10 +157,7 @@ def main():
                                 options=models
                             )
 
-                            # Specific params for KNN
-                            params = {}
-
-                            if "K-Nearest Neighbors Classifier" in st.session_state.selected_models:
+                            if "K-Nearest Neighbors Classifier" in st.session_state.selected_models or "K-Nearest Neighbors Regressor" in st.session_state.selected_models:
                                 n_neighbors = st.number_input(
                                     "Número de vecinos para KNN",
                                     min_value=1,
@@ -168,7 +166,7 @@ def main():
                                     step=1,
                                     help="Selecciona el número de vecinos para el clasificador KNN"
                                 )
-                                params["K-Nearest Neighbors Classifier"] = {"n_neighbors": n_neighbors}
+                                param = n_neighbors
 
                         else:
                             st.warning("Tipo de algoritmo no soportado")
@@ -177,26 +175,27 @@ def main():
                 if st.session_state.selected_models:
                     if st.button("Entrenar modelos"):
                         all_metrics = []
-
+                        all_models = {}
                         for model_name in st.session_state.selected_models:
                             with st.spinner(f"Entrenando {model_name}..."):
-                                # Puedes pasar parámetros aquí si alguno lo requiere
-                                metrics = train_and_evaluate_model(
+                                
+                                metrics, trained_model = train_and_evaluate_model(
                                     task_type,
                                     model_name,
                                     st.session_state.input_df,
                                     st.session_state.features,
                                     st.session_state.target,
-                                    model_params=params.get(model_name)
+                                    n_neighbors=param
                                 )
 
-                                # Asegúrate de que `metrics` sea un dict plano
+
                                 metrics["Modelo"] = model_name
                                 all_metrics.append(metrics)
+                                all_models[model_name] = trained_model
 
-                        # Convertimos todo en DataFrame comparativo
-                        comparison_df = pd.DataFrame(all_metrics).set_index("Modelo")
-                        st.session_state.metrics_df = comparison_df
+                     
+                        st.session_state.metrics_df = pd.DataFrame(all_metrics).set_index("Modelo")
+                        st.session_state.trained_models = all_models
 
 
                 if st.session_state.metrics_df is not None:
@@ -204,10 +203,83 @@ def main():
                     styled_df = highlight_best_and_worst_metrics(st.session_state.metrics_df)
                     st.dataframe(styled_df, use_container_width=True)
 
-                    # Gráfico opcional (ejemplo con F1-Score)
-                    if "F1-Score" in st.session_state.metrics_df.columns:
-                        st.subheader("🔎 Comparación visual (F1-Score)")
-                        st.bar_chart(st.session_state.metrics_df["F1-Score"])
+                    if task_type == "Clasificación":
+                        st.subheader("📉 Curvas ROC por modelo (multiclase soportado)")
+                        from sklearn.preprocessing import label_binarize
+                        from sklearn.metrics import roc_curve, auc
+                        import matplotlib.pyplot as plt
+                        import numpy as np
+
+                        y_test = st.session_state.y_test
+                        X_test = st.session_state.X_test
+                        class_names = list(set(y_test))
+
+                        y_test_bin = label_binarize(y_test, classes=class_names)
+                        n_classes = y_test_bin.shape[1]
+
+                        # Crear columnas para mostrar 2 gráficos por fila
+                        cols = st.columns(2)
+                        col_idx = 0
+
+                        for model_name, model in st.session_state.trained_models.items():
+                            if hasattr(model, "predict_proba"):
+                                y_score = model.predict_proba(X_test)
+
+                                if y_score.shape[1] == 1:
+                                    st.warning(f"⚠️ {model_name} devuelve solo una clase en predict_proba.")
+                                    continue
+
+                                fpr = dict()
+                                tpr = dict()
+                                roc_auc = dict()
+
+                                for i in range(n_classes):
+                                    fpr[i], tpr[i], _ = roc_curve(y_test_bin[:, i], y_score[:, i])
+                                    roc_auc[i] = auc(fpr[i], tpr[i])
+
+                                all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+                                mean_tpr = np.zeros_like(all_fpr)
+                                for i in range(n_classes):
+                                    mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+                                mean_tpr /= n_classes
+
+                                fig, ax = plt.subplots(figsize=(4, 3))
+                                ax.plot(all_fpr, mean_tpr, color='navy',
+                                        label=f"Macro promedio (AUC = {auc(all_fpr, mean_tpr):.2f})", lw=2)
+
+                                for i in range(n_classes):
+                                    ax.plot(fpr[i], tpr[i],
+                                            lw=1, label=f"Clase {class_names[i]} (AUC = {roc_auc[i]:.2f})")
+
+                                ax.plot([0, 1], [0, 1], linestyle='--', color='gray')
+                                ax.set_xlabel("Tasa de falsos positivos")
+                                ax.set_ylabel("Tasa de verdaderos positivos")
+                                ax.set_title(f"Curvas ROC - {model_name}")
+                                ax.legend(loc="lower right", fontsize="small")
+
+                                # Mostrar el gráfico en la columna correspondiente
+                                with cols[col_idx]:
+                                    st.pyplot(fig)
+
+                                col_idx = (col_idx + 1) % 2  # Alternar entre columna 0 y 1
+
+                            else:
+                                st.warning(f"⚠️ {model_name} no tiene método `predict_proba()`.")
+
+                            
+                    st.subheader("📥 Descargar modelos entrenados")
+                    for model_name, model in st.session_state.trained_models.items():
+                        buffer = io.BytesIO()
+                        joblib.dump(model, buffer)
+                        buffer.seek(0)
+                        st.download_button(
+                            label=f"Descargar {model_name}",
+                            data=buffer,
+                            file_name=f"{model_name.replace(' ', '_').lower()}.pkl",
+                            mime="application/octet-stream"
+                        ) 
+
+
 
 if __name__ == "__main__":
     main()
