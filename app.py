@@ -5,6 +5,8 @@ import numpy as np
 from utils.utils import train_and_evaluate_model
 import joblib
 import io
+from pandas.io.formats.style import Styler
+
 # Configuration
 st.set_page_config(
     page_title="🔍 Recomendador de modelos de ML",
