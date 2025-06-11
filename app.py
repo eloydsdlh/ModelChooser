@@ -54,6 +54,26 @@ for var in ["uploaded_file", "input_df", "features", "target", "metrics_df", "se
     if var not in st.session_state:
         st.session_state[var] = None
 
+def highlight_best_and_worst_metrics(df: pd.DataFrame) -> pd.io.formats.style.Styler:
+
+    # Metrics where the value high is better
+    max_metrics = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'R2']
+    # Metrics where the value low is better
+    min_metrics = ['MSE', 'RMSE', 'MAE']
+
+    styles = pd.DataFrame('', index=df.index, columns=df.columns)
+
+    for col in df.columns:
+        if col in max_metrics:
+            max_val = df[col].max()
+            styles[col] = df[col].apply(lambda x: 'background-color: lightgreen' if x == max_val else '')
+        elif col in min_metrics:
+            min_val = df[col].min()
+            styles[col] = df[col].apply(lambda x: 'background-color: lightgreen' if x == min_val else '')
+
+    return df.style.apply(lambda _: styles, axis=None)
+
+
 
 def main():
     st.title("🔍 Recomendador de modelos de Machine Learning")
@@ -135,6 +155,21 @@ def main():
                                 "Modelos disponibles",
                                 options=models
                             )
+
+                            # Specific params for KNN
+                            params = {}
+
+                            if "K-Nearest Neighbors Classifier" in st.session_state.selected_models:
+                                n_neighbors = st.number_input(
+                                    "Número de vecinos para KNN",
+                                    min_value=1,
+                                    max_value=50,
+                                    value=5,
+                                    step=1,
+                                    help="Selecciona el número de vecinos para el clasificador KNN"
+                                )
+                                params["K-Nearest Neighbors Classifier"] = {"n_neighbors": n_neighbors}
+
                         else:
                             st.warning("Tipo de algoritmo no soportado")
 
@@ -144,30 +179,35 @@ def main():
                         all_metrics = []
 
                         for model_name in st.session_state.selected_models:
-                            metrics = train_and_evaluate_model(
-                                task_type,
-                                model_name,
-                                st.session_state.input_df,
-                                st.session_state.features,
-                                st.session_state.target
-                            )
+                            with st.spinner(f"Entrenando {model_name}..."):
+                                # Puedes pasar parámetros aquí si alguno lo requiere
+                                metrics = train_and_evaluate_model(
+                                    task_type,
+                                    model_name,
+                                    st.session_state.input_df,
+                                    st.session_state.features,
+                                    st.session_state.target,
+                                    model_params=params.get(model_name)
+                                )
 
-                            
-                            metrics["Modelo"] = model_name
-                            
-                            all_metrics.append(metrics)
-                            
+                                # Asegúrate de que `metrics` sea un dict plano
+                                metrics["Modelo"] = model_name
+                                all_metrics.append(metrics)
 
-                        # Concat all metrics into a single DataFrame
-                        st.session_state.metrics_df = pd.concat(all_metrics).reset_index().rename(columns={"index": "Clase"})
+                        # Convertimos todo en DataFrame comparativo
+                        comparison_df = pd.DataFrame(all_metrics).set_index("Modelo")
+                        st.session_state.metrics_df = comparison_df
 
 
                 if st.session_state.metrics_df is not None:
-                    st.subheader("📈 Métricas de evaluación del modelo/s")
-                    st.dataframe(
-                        st.session_state.metrics_df,
-                        use_container_width=True
-                    )
+                    st.subheader("📈 Comparativa de modelos")
+                    styled_df = highlight_best_and_worst_metrics(st.session_state.metrics_df)
+                    st.dataframe(styled_df, use_container_width=True)
+
+                    # Gráfico opcional (ejemplo con F1-Score)
+                    if "F1-Score" in st.session_state.metrics_df.columns:
+                        st.subheader("🔎 Comparación visual (F1-Score)")
+                        st.bar_chart(st.session_state.metrics_df["F1-Score"])
 
 if __name__ == "__main__":
     main()
