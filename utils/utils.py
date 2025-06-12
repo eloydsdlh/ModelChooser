@@ -101,7 +101,7 @@ def train_and_evaluate_model(
         dataset: pd.DataFrame,
         feature_cols: list,
         target_col: str,
-        n_neighbors: int
+        params: dict = None,
     ) -> pd.DataFrame:
 
     # Clean data
@@ -145,7 +145,7 @@ def train_and_evaluate_model(
                     from models.classification.models import (
                         train_knn_classifier
                     )
-                    model = train_knn_classifier(X_train, y_train, n_neighbors)
+                    model = train_knn_classifier(X_train, y_train, params.get('n_neighbors'))
                 case "Árbol de Decisión":
                     from models.classification.models import (
                         train_decision_tree_classifier
@@ -236,7 +236,7 @@ def train_and_evaluate_model(
                     from models.regression.models import (
                         train_knn_regressor
                     )
-                    model = train_knn_regressor(X_train, y_train, n_neighbors)
+                    model = train_knn_regressor(X_train, y_train, params.get('n_neighbors'))
                 case "Árbol de Decisión Regressor":
                     from models.regression.models import (
                         train_decision_tree_regressor

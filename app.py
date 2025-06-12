@@ -1,5 +1,4 @@
 import pandas as pd
-from sklearn.utils.multiclass import type_of_target
 import streamlit as st
 import numpy as np
 from utils.utils import train_and_evaluate_model
@@ -44,13 +43,6 @@ REGRESSION_MODELS = [
     "XGBoost Regressor",
     "LightGBM Regressor",
     "CatBoost Regressor"
-]
-
-CLASSIFICATION_TARGETS = [
-    "binary",
-    "multiclass",
-    "multiclass-multioutput",
-    "multilabel-indicator"
 ]
 
 for var in ["uploaded_file", "input_df", "features", "target", "metrics_df", "selected_models"]:
@@ -131,11 +123,31 @@ def main():
                     options=target_options
                 )
                 if st.session_state.target:
-                    # Task type detection
-                    y = st.session_state.input_df[
-                        st.session_state.target
-                        ].dropna()
-                    task_type = "Clasificación" if type_of_target(y) in CLASSIFICATION_TARGETS else "Regresión"
+                    y = st.session_state.input_df[st.session_state.target].dropna()
+                    unique_vals = y.nunique()
+                    dtype_kind = y.dtype.kind
+
+                    if dtype_kind in {'i', 'u'}:  # Integer
+                        if unique_vals <= 20:
+                            task_type = "Clasificación"
+                        elif 20 < unique_vals <= 30:
+                            st.warning(
+                                f"El target tiene {unique_vals} valores únicos enteros. Esto puede ser clasificación o regresión."
+                            )
+                            task_type = st.radio(
+                                "¿Qué tipo de problema quieres resolver?",
+                                ("Clasificación", "Regresión"),
+                                index=1,
+                                help="Selecciona manualmente el tipo si no estás seguro"
+                            )
+                        else:
+                            task_type = "Regresión"
+                    elif dtype_kind == 'f':  # Float
+                        task_type = "Regresión"
+                    else:
+                        task_type = "Clasificación"
+
+
 
                     # Model recommendations
                     col1, col2 = st.columns(2)
@@ -158,7 +170,7 @@ def main():
                                 "Modelos disponibles",
                                 options=models
                             )
-
+                            params = {}
                             if "K-Nearest Neighbors Classifier" in st.session_state.selected_models or "K-Nearest Neighbors Regressor" in st.session_state.selected_models:
                                 n_neighbors = st.number_input(
                                     "Número de vecinos para KNN",
@@ -168,7 +180,7 @@ def main():
                                     step=1,
                                     help="Selecciona el número de vecinos para el clasificador KNN"
                                 )
-                                param = n_neighbors
+                                params= {"n_neighbors": n_neighbors}
 
                         else:
                             st.warning("Tipo de algoritmo no soportado")
@@ -187,7 +199,7 @@ def main():
                                     st.session_state.input_df,
                                     st.session_state.features,
                                     st.session_state.target,
-                                    n_neighbors=param
+                                    params
                                 )
 
 
