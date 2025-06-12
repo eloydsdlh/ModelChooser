@@ -13,7 +13,7 @@ Este proyecto permite cargar un conjunto de datos, seleccionar características,
 - 📊 División en conjuntos de entrenamiento y prueba.
 - 🤖 Entrenamiento de múltiples modelos con diferentes algoritmos.
 - 📈 Evaluación automática de los modelos con métricas clave.
-- 💾 Almacenamiento de los modelos entrenados en `st.session_state` para su reutilización.
+- 💾 Almacenamiento de los modelos entrenados en `st.session_state` para su descarga.
 - 🧪 Visualización interactiva con **Streamlit**.
 
 ---
@@ -54,8 +54,8 @@ Este proyecto permite cargar un conjunto de datos, seleccionar características,
 1. Clona el repositorio:
 
 ```bash
-git clone https://github.com/tu_usuario/tu_repo.git
-cd tu_repo
+git clone https://github.com/eloydsdlh/ModelChooser.git
+cd ModelChooser
 ```
 
 2. Instala dependencias:
@@ -67,7 +67,7 @@ pip install -r requirements.txt
 3. Ejecuta la aplicación:
 
 ```bash
-streamlit run app/main.py
+streamlit run app.py
 ```
 
 ## 📊 Métricas Reportadas
