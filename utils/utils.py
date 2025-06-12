@@ -109,7 +109,7 @@ def train_and_evaluate_model(
 
     # Convert categorical columns to numerical codes
     if task_type == "Regresión":
-        dataset = find_and_convert_cat_cols(cleaned_data)
+        cleaned_data = find_and_convert_cat_cols(cleaned_data)
 
     # Split data
     X_train, X_test, y_train, y_test = split_data(cleaned_data, feature_cols, target_col)
