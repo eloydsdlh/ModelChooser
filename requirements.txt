@@ -1,3 +1,8 @@
-streamlit
 pandas
+streamlit
+numpy
 scikit-learn
+xgboost
+lightgbm
+catboost
+joblib
