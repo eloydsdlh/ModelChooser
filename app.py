@@ -150,7 +150,7 @@ def main():
 
 
                     # Model recommendations
-                    col1, col2 = st.columns(2)
+                    col1, col2 = st.columns([3,7])
 
                     with col1:
                         st.markdown(
@@ -214,11 +214,28 @@ def main():
 
                 if st.session_state.metrics_df is not None:
                     st.subheader("📈 Comparativa de modelos")
+                    with st.expander("❓ Explicación de métricas"):
+                        if task_type == "Regresión":
+                            st.markdown("""
+                            - **MAE (Mean Absolute Error)**: El promedio de la diferencia absoluta entre los valores reales y los predichos. Mide el error promedio sin importar la dirección.
+                            - **MSE (Mean Squared Error)**: El promedio de las diferencias al cuadrado entre los valores reales y predichos. Penaliza más los errores grandes.
+                            - **RMSE (Root Mean Squared Error)**: Raíz cuadrada del MSE, vuelve las unidades al mismo nivel que los datos originales.
+                            - **R2 (Coeficiente de determinación)**: Mide qué tan bien el modelo explica la variabilidad de los datos. Un valor cercano a 1 indica buen ajuste.
+                            """)
+                        elif task_type == "Clasificación":
+                            st.markdown("""
+                            - **Accuracy (Precisión general)**: Proporción de predicciones correctas sobre el total de predicciones.
+                            - **Precision**: De todas las predicciones positivas, cuántas fueron realmente positivas.
+                            - **Recall**: De todos los casos positivos reales, cuántos fueron correctamente detectados.
+                            - **F1-Score**: La media armónica entre precision y recall; útil cuando hay clases desbalanceadas.
+                            """)
+                    
                     styled_df = highlight_best_and_worst_metrics(st.session_state.metrics_df)
                     st.dataframe(styled_df, use_container_width=True)
 
+
                     if task_type == "Clasificación":
-                        st.subheader("📉 Curvas ROC por modelo (multiclase soportado)")
+                        st.subheader("📉 Curvas ROC por modelo")
                         from sklearn.preprocessing import label_binarize
                         from sklearn.metrics import roc_curve, auc
                         import matplotlib.pyplot as plt
@@ -231,7 +248,7 @@ def main():
                         y_test_bin = label_binarize(y_test, classes=class_names)
                         n_classes = y_test_bin.shape[1]
 
-                        # Crear columnas para mostrar 2 gráficos por fila
+                        
                         cols = st.columns(2)
                         col_idx = 0
 
@@ -271,11 +288,11 @@ def main():
                                 ax.set_title(f"Curvas ROC - {model_name}")
                                 ax.legend(loc="lower right", fontsize="small")
 
-                                # Mostrar el gráfico en la columna correspondiente
+                                
                                 with cols[col_idx]:
                                     st.pyplot(fig)
 
-                                col_idx = (col_idx + 1) % 2  # Alternar entre columna 0 y 1
+                                col_idx = (col_idx + 1) % 2  
 
                             else:
                                 st.warning(f"⚠️ {model_name} no tiene método `predict_proba()`.")
